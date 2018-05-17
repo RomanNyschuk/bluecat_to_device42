@@ -1,0 +1,9 @@
+# bluecat settings
+PR_URL='https://10.10.10.10'
+PR_USER='admin'
+PR_PWD='pass'
+
+# device42 settings
+D42_URL='https://10.10.10.11'
+D42_USER='admin'
+D42_PWD='pass'
