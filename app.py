@@ -1,4 +1,6 @@
-__version__ = 0.1
+__version__ = 0.2
+
+import sys
 
 from proteus.api import ProteusClientApi
 import os
@@ -8,6 +10,9 @@ import codecs
 import requests
 
 conf = imp.load_source('conf', 'conf')
+
+if conf.SKIP_HTTPS_ERR:
+    requests.packages.urllib3.disable_warnings(requests.packages.urllib3.exceptions.InsecureRequestWarning)
 
 print conf.PR_URL
 
@@ -137,25 +142,48 @@ if __name__ == '__main__':
 
     # {__pr_id__: __d42_id__ }
     vrf_group_mapping = {}
-   
+
     # migrate vrf
     for container in pc._get_entities(0, 'Configuration', 0, 999)[0]:
+        if container[2] is not None and 'customertriple' in container[2]:
+            vrf_group_name = container[2][15:-1]
+        else:
+            vrf_group_name = container[1]
+
         vrf_group = d42_rest.post_vrf({
-            'name': container[1]
+            'name': vrf_group_name
         })
 
-        vrf_group_mapping.update({str(container[0]): str(vrf_group['msg'][1])}) 
-  
+        vrf_group_mapping.update({str(container[0]): str(vrf_group['msg'][1])})
+
     # migrate ip4 blocks
     for vrf in vrf_group_mapping:
+        all_blocks = []
         block_entities = pc._get_entities(vrf, 'IP4Block', 0, 9999)
 
-        if len(block_entities) > 0:
-            for ip4_block in block_entities[0]:
+        def blocks_reccursion(blocks):
+            for block in blocks:
+                if len(block) == 2:
+                    all_blocks.append(block[1][0])
+                else:
+                    all_blocks.append(block)
+                try: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999))
+                except: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999)[0])
+
+        blocks_reccursion(block_entities[0])
+
+        if len(all_blocks) > 0:
+            for ip4_block in all_blocks:
+                print ip4_block
                 ip4_block_network_data = ip4_block[2].split('|')[0].split('/')
-            
+                if 'CIDR' not in ip4_block_network_data[0]:
+                    ip4_block_network_data = ip4_block[2].split('|')[1].split('/')
+
+                    if 'CIDR' not in ip4_block_network_data[0]:
+                        ip4_block_network_data = ip4_block[2].split('|')[2].split('/')
+
                 network = ip4_block_network_data[0].split('=')[1]
-                mask_bits = ip4_block_network_data[1]            
+                mask_bits = ip4_block_network_data[1]
 
                 d42_rest.post_subnet({
                     'network': network,
@@ -164,28 +192,45 @@ if __name__ == '__main__':
                     'vrf_group_id': vrf_group_mapping[vrf],
                     'auto_add_ips': 'yes'
                 })
-       
-                # migrage ip4 networks 
+
+                # migrage ip4 networks
                 network_entities = pc._get_entities(ip4_block[0], 'IP4Network', 0, 9999)
 
                 if len(network_entities) > 0:
                     for ip4_network in network_entities[0]:
+                        print ip4_network
                         vlan = None
                         try:
                             ip4_network_network_data = ip4_network[2].split('|')[0].split('/')
+
+                            if 'CIDR' not in ip4_network_network_data[0]:
+                                ip4_network_network_data = ip4_network[2].split('|')[1].split('/')
+
+                                if 'CIDR' not in ip4_network_network_data[0]:
+                                   ip4_network_network_data = ip4_network[2].split('|')[2].split('/')
 
                             network = ip4_network_network_data[0].split('=')[1]
                             mask_bits = ip4_network_network_data[1]
                         except:
                             ip4_network_network_data = ip4_network[2].split('|')[1].split('/')
 
-                            network = ip4_network_network_data[0].split('=')[1]
-                            mask_bits = ip4_network_network_data[1]                            
+                            if 'CIDR' not in ip4_network_network_data[0]:
+                                ip4_network_network_data = ip4_network[2].split('|')[1].split('/')
 
-                            vlan_number = ip4_network[2].split('|')[0].split('=')[1]
+                                if 'CIDR' not in ip4_network_network_data[0]:
+                                   ip4_network_network_data = ip4_network[2].split('|')[2].split('/')
+
+                            network = ip4_network_network_data[0].split('=')[1]
+                            mask_bits = ip4_network_network_data[1]
+
+                            vlan_number_string = ip4_network[2].split('|')[0]
+                            if 'VLAN' not in vlan_number_string:
+                               vlan_number_string = ip4_network[2].split('|')[1]
+                               if 'VLAN' not in vlan_number_string:
+                                   vlan_number_string = ip4_network[2].split('|')[2]
 
                             vlan = d42_rest.post_vlan({
-                               'number': vlan_number
+                               'number': vlan_number_string.split('=')[1]
                             })
                             vlan_id = vlan['msg'][1]
 
@@ -195,14 +240,14 @@ if __name__ == '__main__':
                             'name': ip4_network[1],
                             'vrf_group_id': vrf_group_mapping[vrf],
                             'parent_vlan_id': vlan_id if vlan else '',
-                            'auto_add_ips': 'yes'
+                            'auto_add_ips': 'no'
                         })
 
-                
+
                         # migrate ips
                         subnet_id = subnet['msg'][1]
                         ip_entities = pc._get_entities(ip4_network[0], 'IP4Address', 0, 999999)
-                        
+
                         if len(ip_entities) > 0:
                             for ip in ip_entities[0]:
                                 ip_obj = ip[2].split('|')[0].split('=')
@@ -234,5 +279,3 @@ if __name__ == '__main__':
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'tags': 'Proteus-Import'
                                     })
-
-                         
