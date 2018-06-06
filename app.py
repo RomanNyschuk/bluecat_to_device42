@@ -75,7 +75,7 @@ class Device42Rest:
             r = requests.put(url, data=payload, headers=headers, verify=False)
         else:
             r = requests.post(url, data=payload, headers=headers, verify=False)
-        msg = unicode(payload)
+        msg = str(payload)
         logger.writer(msg)
         msg = 'Status code: %s' % str(r.status_code)
         logger.writer(msg)
@@ -151,7 +151,7 @@ if __name__ == '__main__':
             vrf_group_name = container[1]
 
         vrf_group = d42_rest.post_vrf({
-            'name': vrf_group_name
+            'name': vrf_group_name.encode('ascii', 'ignore').decode('ascii'),f
         })
 
         vrf_group_mapping.update({str(container[0]): str(vrf_group['msg'][1])})
@@ -177,7 +177,6 @@ if __name__ == '__main__':
 
         if len(all_blocks) > 0:
             for ip4_block in all_blocks:
-                print ip4_block
                 ip4_block_network_data = ip4_block[2].split('|')[0].split('/')
                 if 'CIDR' not in ip4_block_network_data[0]:
                     ip4_block_network_data = ip4_block[2].split('|')[1].split('/')
@@ -191,7 +190,7 @@ if __name__ == '__main__':
                 d42_rest.post_subnet({
                     'network': network,
                     'mask_bits': mask_bits,
-                    'name': ip4_block[1],
+                    'name': ip4_block[1].encode('ascii', 'ignore').decode('ascii'),
                     'vrf_group_id': vrf_group_mapping[vrf],
                     'auto_add_ips': 'yes'
                 })
@@ -201,7 +200,6 @@ if __name__ == '__main__':
 
                 if len(network_entities) > 0:
                     for ip4_network in network_entities[0]:
-                        print ip4_network
                         vlan = None
                         try:
                             ip4_network_network_data = ip4_network[2].split('|')[0].split('/')
@@ -240,7 +238,7 @@ if __name__ == '__main__':
                         subnet = d42_rest.post_subnet({
                             'network': network,
                             'mask_bits': mask_bits,
-                            'name': ip4_network[1],
+                            'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii'),
                             'vrf_group_id': vrf_group_mapping[vrf],
                             'parent_vlan_id': vlan_id if vlan else '',
                             'auto_add_ips': 'no'
@@ -263,13 +261,13 @@ if __name__ == '__main__':
                                     d42_rest.post_subnet({
                                         'network': network,
                                         'mask_bits': mask_bits,
-                                        'name': ip4_network[1],
+                                        'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii'),
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'gateway': target_ip
                                     })
                                     d42_rest.post_ip({
                                         'ipaddress': target_ip,
-                                        'label': ip[1],
+                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii'),
                                         'subnet': subnet_id,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'available': 'no'
@@ -277,7 +275,7 @@ if __name__ == '__main__':
                                 else:
                                     d42_rest.post_ip({
                                         'ipaddress': target_ip,
-                                        'label': ip[1],
+                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii'),
                                         'subnet': subnet_id,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'tags': 'Proteus-Import'
