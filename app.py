@@ -151,7 +151,7 @@ if __name__ == '__main__':
             vrf_group_name = container[1]
 
         vrf_group = d42_rest.post_vrf({
-            'name': vrf_group_name.encode('ascii', 'ignore').decode('ascii'),f
+            'name': vrf_group_name.encode('ascii', 'ignore').decode('ascii')
         })
 
         vrf_group_mapping.update({str(container[0]): str(vrf_group['msg'][1])})
