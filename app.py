@@ -151,7 +151,7 @@ if __name__ == '__main__':
             vrf_group_name = container[1]
 
         vrf_group = d42_rest.post_vrf({
-            'name': vrf_group_name.encode('ascii', 'ignore').decode('ascii')
+            'name': vrf_group_name.encode('ascii', 'ignore').decode('ascii') if vrf_group_name else None
         })
 
         vrf_group_mapping.update({str(container[0]): str(vrf_group['msg'][1])})
@@ -190,7 +190,7 @@ if __name__ == '__main__':
                 d42_rest.post_subnet({
                     'network': network,
                     'mask_bits': mask_bits,
-                    'name': ip4_block[1].encode('ascii', 'ignore').decode('ascii'),
+                    'name': ip4_block[1].encode('ascii', 'ignore').decode('ascii') if ip4_block[1] else None,
                     'vrf_group_id': vrf_group_mapping[vrf],
                     'auto_add_ips': 'yes'
                 })
@@ -238,7 +238,7 @@ if __name__ == '__main__':
                         subnet = d42_rest.post_subnet({
                             'network': network,
                             'mask_bits': mask_bits,
-                            'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii'),
+                            'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii') if ip4_network[1] else None,
                             'vrf_group_id': vrf_group_mapping[vrf],
                             'parent_vlan_id': vlan_id if vlan else '',
                             'auto_add_ips': 'no'
@@ -261,13 +261,13 @@ if __name__ == '__main__':
                                     d42_rest.post_subnet({
                                         'network': network,
                                         'mask_bits': mask_bits,
-                                        'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii'),
+                                        'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii') if ip4_network[1] else None,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'gateway': target_ip
                                     })
                                     d42_rest.post_ip({
                                         'ipaddress': target_ip,
-                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii'),
+                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None,
                                         'subnet': subnet_id,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'available': 'no'
@@ -275,7 +275,7 @@ if __name__ == '__main__':
                                 else:
                                     d42_rest.post_ip({
                                         'ipaddress': target_ip,
-                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii'),
+                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None,
                                         'subnet': subnet_id,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'tags': 'Proteus-Import'
