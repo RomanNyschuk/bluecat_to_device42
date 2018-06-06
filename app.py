@@ -1,4 +1,4 @@
-__version__ = 0.2
+__version__ = 0.3
 
 import sys
 
@@ -169,6 +169,9 @@ if __name__ == '__main__':
                     all_blocks.append(block)
                 try: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999))
                 except: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999)[0])
+
+        if len(block_entities) == 0:
+           continue
 
         blocks_reccursion(block_entities[0])
 
