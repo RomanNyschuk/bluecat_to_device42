@@ -3,7 +3,7 @@ PR_URL = 'https://10.10.10.10'
 PR_USER = 'proteus-user'
 PR_PWD = 'proteus-pass'
 
-# ====== Log settings ==================== #
+# ====== Settings =============== #
 SKIP_HTTPS_ERR = True
 LOGFILE = 'migration.log'
 STDOUT = True  # print to STDOUT
