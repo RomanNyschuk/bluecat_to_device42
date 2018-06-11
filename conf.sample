@@ -9,6 +9,7 @@ LOGFILE = 'migration.log'
 STDOUT = True  # print to STDOUT
 DEBUG = True  # write debug log
 DEBUG_LOG = 'debug.log'
+AUTO_ADD_IPS = False
 
 # ====== Device42 upload settings ========= #
 D42_URL = 'https://10.10.10.11'

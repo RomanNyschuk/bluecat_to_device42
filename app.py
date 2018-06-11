@@ -192,7 +192,7 @@ if __name__ == '__main__':
                     'mask_bits': mask_bits,
                     'name': ip4_block[1].encode('ascii', 'ignore').decode('ascii') if ip4_block[1] else None,
                     'vrf_group_id': vrf_group_mapping[vrf],
-                    'auto_add_ips': 'yes'
+                    'auto_add_ips': 'yes' if conf.AUTO_ADD_IPS else 'no'
                 })
 
                 # migrage ip4 networks
@@ -241,9 +241,8 @@ if __name__ == '__main__':
                             'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii') if ip4_network[1] else None,
                             'vrf_group_id': vrf_group_mapping[vrf],
                             'parent_vlan_id': vlan_id if vlan else '',
-                            'auto_add_ips': 'no'
+                            'auto_add_ips': 'yes' if conf.AUTO_ADD_IPS else 'no'
                         })
-
 
                         # migrate ips
                         subnet_id = subnet['msg'][1]
