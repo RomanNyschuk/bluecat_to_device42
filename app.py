@@ -184,8 +184,11 @@ if __name__ == '__main__':
                     if 'CIDR' not in ip4_block_network_data[0]:
                         ip4_block_network_data = ip4_block[2].split('|')[2].split('/')
 
-                network = ip4_block_network_data[0].split('=')[1]
-                mask_bits = ip4_block_network_data[1]
+                try:
+                    network = ip4_block_network_data[0].split('=')[1]
+                    mask_bits = ip4_block_network_data[1]
+                except:
+                    continue
 
                 d42_rest.post_subnet({
                     'network': network,
