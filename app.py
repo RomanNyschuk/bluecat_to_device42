@@ -1,4 +1,4 @@
-__version__ = 0.3
+__version__ = 0.4
 
 import sys
 
@@ -68,7 +68,7 @@ class Device42Rest:
         payload = data
         headers = {
             'Authorization': 'Basic ' + base64.b64encode(self.username + ':' + self.password),
-	    'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded'
         }
 
         if 'custom_fields' in url:
@@ -227,16 +227,16 @@ if __name__ == '__main__':
                             network = ip4_network_network_data[0].split('=')[1]
                             mask_bits = ip4_network_network_data[1]
 
-                            vlan_number_string = ip4_network[2].split('|')[0]
-                            if 'VLAN' not in vlan_number_string:
-                               vlan_number_string = ip4_network[2].split('|')[1]
-                               if 'VLAN' not in vlan_number_string:
-                                   vlan_number_string = ip4_network[2].split('|')[2]
+                        vlan_number_string = ip4_network[2].split('|')[0]
+                        if 'VLAN' not in vlan_number_string:
+                           vlan_number_string = ip4_network[2].split('|')[1]
+                           if 'VLAN' not in vlan_number_string:
+                               vlan_number_string = ip4_network[2].split('|')[2]
 
-                            vlan = d42_rest.post_vlan({
-                               'number': vlan_number_string.split('=')[1]
-                            })
-                            vlan_id = vlan['msg'][1]
+                        vlan = d42_rest.post_vlan({
+                           'number': vlan_number_string.split('=')[1]
+                        })
+                        vlan_id = vlan['msg'][1]
 
                         subnet = d42_rest.post_subnet({
                             'network': network,
@@ -257,7 +257,11 @@ if __name__ == '__main__':
                                 if ip_obj[0] == 'address':
                                     target_ip = ip_obj[1]
                                 else:
-                                    target_ip = ip[2].split('|')[1].split('=')[1]
+                                    ip_obj = ip[2].split('|')[1].split('=')
+                                    if ip_obj[0] == 'address':
+                                        target_ip = ip_obj[1]
+                                    else:
+                                        target_ip = ip[2].split('|')[2].split('=')[1]
 
                                 if 'GATEWAY' in ip[2]:
                                     d42_rest.post_subnet({
@@ -282,3 +286,4 @@ if __name__ == '__main__':
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'tags': 'Proteus-Import'
                                     })
+~
