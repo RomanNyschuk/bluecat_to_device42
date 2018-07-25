@@ -1,13 +1,22 @@
-__version__ = 0.4
+__version__ = 0.5
 
 import sys
 
 from proteus.api import ProteusClientApi
 import os
+import re
 import imp
 import base64
 import codecs
 import requests
+
+all_vrfs = 0
+all_subnets = 0
+all_ips = 0
+
+added_vrfs = 0
+added_subnets = 0
+added_ips = 0
 
 conf = imp.load_source('conf', 'conf')
 
@@ -102,9 +111,11 @@ class Device42Rest:
         return r.text
 
     def post_vrf(self, data):
+        global added_vrfs
         url = self.base_url + '/api/1.0/vrf_group/'
         msg = '\r\nPosting data to %s ' % url
         logger.writer(msg)
+        added_vrfs += 1
         return self.uploader(data, url)
 
     def post_vlan(self, data):
@@ -114,16 +125,20 @@ class Device42Rest:
         return self.uploader(data, url)
 
     def post_subnet(self, data):
+        global added_subnets
         url = self.base_url + '/api/1.0/subnets/'
         msg = '\r\nPosting data to %s ' % url
         logger.writer(msg)
+        added_subnets += 1
         return self.uploader(data, url)
 
     def post_ip(self, data):
+        global added_ips
         url = self.base_url + '/api/ip/'
         msg = '\r\nPosting IP data to %s ' % url
         logger.writer(msg)
         self.uploader(data, url)
+        added_ips += 1
 
 if __name__ == '__main__':
     logger = Logger(conf.LOGFILE, conf.STDOUT)
@@ -145,6 +160,7 @@ if __name__ == '__main__':
 
     # migrate vrf
     for container in pc._get_entities(0, 'Configuration', 0, 999)[0]:
+        all_vrfs += 1
         if container[2] is not None and 'customertriple' in container[2]:
             vrf_group_name = container[2][15:-1]
         else:
@@ -170,25 +186,17 @@ if __name__ == '__main__':
                 try: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999))
                 except: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999)[0])
 
-        if len(block_entities) == 0:
+        if block_entities and len(block_entities) == 0:
            continue
 
         blocks_reccursion(block_entities[0])
 
         if len(all_blocks) > 0:
             for ip4_block in all_blocks:
-                ip4_block_network_data = ip4_block[2].split('|')[0].split('/')
-                if 'CIDR' not in ip4_block_network_data[0]:
-                    ip4_block_network_data = ip4_block[2].split('|')[1].split('/')
-
-                    if 'CIDR' not in ip4_block_network_data[0]:
-                        ip4_block_network_data = ip4_block[2].split('|')[2].split('/')
-
-                try:
-                    network = ip4_block_network_data[0].split('=')[1]
-                    mask_bits = ip4_block_network_data[1]
-                except:
-                    continue
+                all_subnets += 1
+                network_cidr = network_cidr = re.search(r"CIDR=(.*?)\|", ip4_block[2]).group(1)
+                network = network_cidr.split('/')[0]
+                mask_bits = network_cidr.split('/')[1]
 
                 d42_rest.post_subnet({
                     'network': network,
@@ -203,47 +211,31 @@ if __name__ == '__main__':
 
                 if len(network_entities) > 0:
                     for ip4_network in network_entities[0]:
+                        all_subnets += 1
                         vlan = None
+
+                        network_cidr = network_cidr = re.search(r"CIDR=(.*?)\|", ip4_network[2]).group(1)
+                        network = network_cidr.split('/')[0]
+                        mask_bits = network_cidr.split('/')[1]
+
                         try:
-                            ip4_network_network_data = ip4_network[2].split('|')[0].split('/')
-
-                            if 'CIDR' not in ip4_network_network_data[0]:
-                                ip4_network_network_data = ip4_network[2].split('|')[1].split('/')
-
-                                if 'CIDR' not in ip4_network_network_data[0]:
-                                   ip4_network_network_data = ip4_network[2].split('|')[2].split('/')
-
-                            network = ip4_network_network_data[0].split('=')[1]
-                            mask_bits = ip4_network_network_data[1]
+                            vlan_number_string = network_cidr = re.search(r"VLAN=(.*?)\|", ip4_network[2]).group(1)
                         except:
-                            ip4_network_network_data = ip4_network[2].split('|')[1].split('/')
+                            vlan_number_string = None
 
-                            if 'CIDR' not in ip4_network_network_data[0]:
-                                ip4_network_network_data = ip4_network[2].split('|')[1].split('/')
-
-                                if 'CIDR' not in ip4_network_network_data[0]:
-                                   ip4_network_network_data = ip4_network[2].split('|')[2].split('/')
-
-                            network = ip4_network_network_data[0].split('=')[1]
-                            mask_bits = ip4_network_network_data[1]
-
-                        vlan_number_string = ip4_network[2].split('|')[0]
-                        if 'VLAN' not in vlan_number_string:
-                           vlan_number_string = ip4_network[2].split('|')[1]
-                           if 'VLAN' not in vlan_number_string:
-                               vlan_number_string = ip4_network[2].split('|')[2]
-
-                        vlan = d42_rest.post_vlan({
-                           'number': vlan_number_string.split('=')[1]
-                        })
-                        vlan_id = vlan['msg'][1]
+                        vlan_id = None
+                        if vlan_number_string:
+                           vlan = d42_rest.post_vlan({
+                               'number': vlan_number_string
+                           })
+                           vlan_id = vlan['msg'][1]
 
                         subnet = d42_rest.post_subnet({
                             'network': network,
                             'mask_bits': mask_bits,
                             'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii') if ip4_network[1] else None,
                             'vrf_group_id': vrf_group_mapping[vrf],
-                            'parent_vlan_id': vlan_id if vlan else '',
+                            'parent_vlan_id': vlan_id if vlan_id else '',
                             'auto_add_ips': 'yes' if conf.AUTO_ADD_IPS else 'no'
                         })
 
@@ -253,15 +245,8 @@ if __name__ == '__main__':
 
                         if len(ip_entities) > 0:
                             for ip in ip_entities[0]:
-                                ip_obj = ip[2].split('|')[0].split('=')
-                                if ip_obj[0] == 'address':
-                                    target_ip = ip_obj[1]
-                                else:
-                                    ip_obj = ip[2].split('|')[1].split('=')
-                                    if ip_obj[0] == 'address':
-                                        target_ip = ip_obj[1]
-                                    else:
-                                        target_ip = ip[2].split('|')[2].split('=')[1]
+                                all_ips += 1
+                                target_ip = network_cidr = re.search(r"address=(.*?)\|", ip[2]).group(1)
 
                                 if 'GATEWAY' in ip[2]:
                                     d42_rest.post_subnet({
@@ -286,4 +271,12 @@ if __name__ == '__main__':
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'tags': 'Proteus-Import'
                                     })
-~
+
+    print "Total vrfs found : %s" % all_vrfs
+    print "Total vrfs added : %s" % added_vrfs
+
+    print "Total subnets found : %s" % all_subnets
+    print "Total subnets added : %s" % added_subnets
+
+    print "Total ips found : %s" % all_ips
+    print "Total ips added : %s" % added_ips
