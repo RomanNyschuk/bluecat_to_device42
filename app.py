@@ -186,7 +186,7 @@ if __name__ == '__main__':
                 try: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999))
                 except: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999)[0])
 
-        if block_entities and len(block_entities) == 0:
+        if not block_entities:
            continue
 
         blocks_reccursion(block_entities[0])
