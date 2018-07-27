@@ -129,7 +129,8 @@ class Device42Rest:
         url = self.base_url + '/api/1.0/subnets/'
         msg = '\r\nPosting data to %s ' % url
         logger.writer(msg)
-        added_subnets += 1
+        if 'gateway' in data:
+            added_subnets += 1
         return self.uploader(data, url)
 
     def post_ip(self, data):
@@ -142,6 +143,7 @@ class Device42Rest:
 
 if __name__ == '__main__':
     logger = Logger(conf.LOGFILE, conf.STDOUT)
+    vrf_nans = []
 
     d42_rest = Device42Rest(
         conf.D42_URL,
@@ -165,6 +167,9 @@ if __name__ == '__main__':
             vrf_group_name = container[2][15:-1]
         else:
             vrf_group_name = container[1]
+
+        if vrf_group_name == 'NAN':
+            vrf_nans.append(container[1])
 
         vrf_group = d42_rest.post_vrf({
             'name': vrf_group_name.encode('ascii', 'ignore').decode('ascii') if vrf_group_name else None
@@ -194,7 +199,11 @@ if __name__ == '__main__':
         if len(all_blocks) > 0:
             for ip4_block in all_blocks:
                 all_subnets += 1
-                network_cidr = network_cidr = re.search(r"CIDR=(.*?)\|", ip4_block[2]).group(1)
+                regexr = re.search(r"CIDR=(.*?)\|", ip4_block[2])
+                if not regexr:
+                    print "skip %s" % ip4_block
+                    continue
+                network_cidr = regexr.group(1)
                 network = network_cidr.split('/')[0]
                 mask_bits = network_cidr.split('/')[1]
 
@@ -214,12 +223,16 @@ if __name__ == '__main__':
                         all_subnets += 1
                         vlan = None
 
-                        network_cidr = network_cidr = re.search(r"CIDR=(.*?)\|", ip4_network[2]).group(1)
+                        regexr = re.search(r"CIDR=(.*?)\|", ip4_network[2])
+                        if not regexr:
+                            print "skip %s" % ip4_network
+                            continue
+                        network_cidr = regexr.group(1)
                         network = network_cidr.split('/')[0]
                         mask_bits = network_cidr.split('/')[1]
 
                         try:
-                            vlan_number_string = network_cidr = re.search(r"VLAN=(.*?)\|", ip4_network[2]).group(1)
+                            vlan_number_string = re.search(r"VLAN=(.*?)\|", ip4_network[2]).group(1)
                         except:
                             vlan_number_string = None
 
@@ -246,7 +259,7 @@ if __name__ == '__main__':
                         if len(ip_entities) > 0:
                             for ip in ip_entities[0]:
                                 all_ips += 1
-                                target_ip = network_cidr = re.search(r"address=(.*?)\|", ip[2]).group(1)
+                                target_ip = re.search(r"address=(.*?)\|", ip[2]).group(1)
 
                                 if 'GATEWAY' in ip[2]:
                                     d42_rest.post_subnet({
@@ -280,3 +293,5 @@ if __name__ == '__main__':
 
     print "Total ips found : %s" % all_ips
     print "Total ips added : %s" % added_ips
+
+    print "VRF NAN's : %s" % vrf_nans
