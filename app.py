@@ -18,6 +18,17 @@ added_vrfs = 0
 added_subnets = 0
 added_ips = 0
 
+updated_vrfs = 0
+updated_subnets = 0
+updated_ips = 0
+
+duplicated_vrfs = 0
+duplicated_subnets = 0
+duplicated_ips = 0
+
+skipped_ips = 0
+skipped_subnets = 0
+
 conf = imp.load_source('conf', 'conf')
 
 if conf.SKIP_HTTPS_ERR:
@@ -111,12 +122,18 @@ class Device42Rest:
         return r.text
 
     def post_vrf(self, data):
-        global added_vrfs
+        global added_vrfs, updated_vrfs, duplicated_vrfs
         url = self.base_url + '/api/1.0/vrf_group/'
         msg = '\r\nPosting data to %s ' % url
         logger.writer(msg)
-        added_vrfs += 1
-        return self.uploader(data, url)
+        response = self.uploader(data, url)
+        if response['msg'][3] and response['msg'][4]:
+            added_vrfs += 1
+        elif response['msg'][3] and not response['msg'][4]:
+            updated_vrfs += 1
+        elif not response['msg'][3] and not response['msg'][4]:
+            duplicated_vrfs += 1
+        return response
 
     def post_vlan(self, data):
         url = self.base_url + '/api/1.0/vlans/'
@@ -125,21 +142,31 @@ class Device42Rest:
         return self.uploader(data, url)
 
     def post_subnet(self, data):
-        global added_subnets
+        global added_subnets, updated_subnets, duplicated_subnets
         url = self.base_url + '/api/1.0/subnets/'
         msg = '\r\nPosting data to %s ' % url
         logger.writer(msg)
-        if 'gateway' in data:
+        response = self.uploader(data, url)
+        if 'gateway' not in data and response['msg'][3] and response['msg'][4]:
             added_subnets += 1
-        return self.uploader(data, url)
+        elif 'gateway' not in data and response['msg'][3] and not response['msg'][4]:
+            updated_subnets += 1
+        elif 'gateway' not in data and not response['msg'][3] and not response['msg'][4]:
+            duplicated_subnets += 1
+        return response
 
     def post_ip(self, data):
-        global added_ips
+        global added_ips, updated_ips, duplicated_ips
         url = self.base_url + '/api/ip/'
         msg = '\r\nPosting IP data to %s ' % url
         logger.writer(msg)
-        self.uploader(data, url)
-        added_ips += 1
+        response = self.uploader(data, url)
+        if response['msg'][3] and response['msg'][4]:
+            added_ips += 1
+        elif response['msg'][3] and not response['msg'][4]:
+            updated_ips += 1
+        elif not response['msg'][3] and not response['msg'][4]:
+            duplicated_ips += 1
 
 if __name__ == '__main__':
     logger = Logger(conf.LOGFILE, conf.STDOUT)
@@ -206,11 +233,23 @@ if __name__ == '__main__':
                 network_cidr = regexr.group(1)
                 network = network_cidr.split('/')[0]
                 mask_bits = network_cidr.split('/')[1]
+                subnet_name = ip4_block[1].encode('ascii', 'ignore').decode('ascii') if ip4_block[1] else None
+
+                skipped = False
+                if subnet_name:
+                    for x in conf.SKIP.split(','):
+                        if x.lower() in subnet_name.lower():
+                            skipped = True
+                            continue
+
+                if skipped:
+                    skipped_subnets += 1
+                    continue
 
                 d42_rest.post_subnet({
                     'network': network,
                     'mask_bits': mask_bits,
-                    'name': ip4_block[1].encode('ascii', 'ignore').decode('ascii') if ip4_block[1] else None,
+                    'name': subnet_name,
                     'vrf_group_id': vrf_group_mapping[vrf],
                     'auto_add_ips': 'yes' if conf.AUTO_ADD_IPS else 'no'
                 })
@@ -230,6 +269,7 @@ if __name__ == '__main__':
                         network_cidr = regexr.group(1)
                         network = network_cidr.split('/')[0]
                         mask_bits = network_cidr.split('/')[1]
+                        subnet_name = ip4_network[1].encode('ascii', 'ignore').decode('ascii') if ip4_network[1] else None
 
                         try:
                             vlan_number_string = re.search(r"VLAN=(.*?)\|", ip4_network[2]).group(1)
@@ -243,10 +283,21 @@ if __name__ == '__main__':
                            })
                            vlan_id = vlan['msg'][1]
 
+                        skipped = False
+                        if subnet_name:
+                            for x in conf.SKIP.split(','):
+                                if x.lower() in subnet_name.lower():
+                                    skipped = True
+                                    continue
+
+                        if skipped:
+                            skipped_subnets += 1
+                            continue
+
                         subnet = d42_rest.post_subnet({
                             'network': network,
                             'mask_bits': mask_bits,
-                            'name': ip4_network[1].encode('ascii', 'ignore').decode('ascii') if ip4_network[1] else None,
+                            'name': subnet_name,
                             'vrf_group_id': vrf_group_mapping[vrf],
                             'parent_vlan_id': vlan_id if vlan_id else '',
                             'auto_add_ips': 'yes' if conf.AUTO_ADD_IPS else 'no'
@@ -260,6 +311,18 @@ if __name__ == '__main__':
                             for ip in ip_entities[0]:
                                 all_ips += 1
                                 target_ip = re.search(r"address=(.*?)\|", ip[2]).group(1)
+                                label = ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None
+
+                                skipped = False
+                                if label:
+                                    for x in conf.SKIP.split(','):
+                                        if x.lower() in label.lower():
+                                            skipped = True
+                                            continue
+
+                                if skipped:
+                                    skipped_ips += 1
+                                    continue
 
                                 if 'GATEWAY' in ip[2]:
                                     d42_rest.post_subnet({
@@ -271,7 +334,7 @@ if __name__ == '__main__':
                                     })
                                     d42_rest.post_ip({
                                         'ipaddress': target_ip,
-                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None,
+                                        'label': label,
                                         'subnet': subnet_id,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'available': 'no'
@@ -279,7 +342,7 @@ if __name__ == '__main__':
                                 else:
                                     d42_rest.post_ip({
                                         'ipaddress': target_ip,
-                                        'label': ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None,
+                                        'label': label,
                                         'subnet': subnet_id,
                                         'vrf_group_id': vrf_group_mapping[vrf],
                                         'tags': 'Proteus-Import'
@@ -287,11 +350,19 @@ if __name__ == '__main__':
 
     print "Total vrfs found : %s" % all_vrfs
     print "Total vrfs added : %s" % added_vrfs
+    print "Total vrfs updated : %s" % updated_vrfs
+    print "Total vrfs duplicated : %s" % duplicated_vrfs
 
     print "Total subnets found : %s" % all_subnets
     print "Total subnets added : %s" % added_subnets
+    print "Total subnets updated : %s" % updated_subnets
+    print "Total subnets duplicated : %s" % duplicated_subnets
+    print "Total subnets skipped : %s" % skipped_subnets
 
     print "Total ips found : %s" % all_ips
     print "Total ips added : %s" % added_ips
+    print "Total ips updated : %s" % updated_ips
+    print "Total ips duplicated : %s" % duplicated_ips
+    print "Total ips skipped : %s" % skipped_ips
 
     print "VRF NAN's : %s" % vrf_nans

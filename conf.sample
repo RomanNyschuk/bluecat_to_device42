@@ -10,8 +10,10 @@ STDOUT = True  # print to STDOUT
 DEBUG = True  # write debug log
 DEBUG_LOG = 'debug.log'
 AUTO_ADD_IPS = False
+SKIP = 'MOVED, CLOSED, IGNORE'
 
 # ====== Device42 upload settings ========= #
 D42_URL = 'https://10.10.10.11'
 D42_USER = 'd42-user'
 D42_PWD = 'd42-pass'
+
