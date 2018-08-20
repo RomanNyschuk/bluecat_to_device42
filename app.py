@@ -1,8 +1,9 @@
-__version__ = 0.5
+__version__ = 0.6
 
 import sys
 
 from proteus.api import ProteusClientApi
+from proteus.api.dns import DNS
 import os
 import re
 import imp
@@ -186,9 +187,27 @@ if __name__ == '__main__':
 
     # {__pr_id__: __d42_id__ }
     vrf_group_mapping = {}
+    host_record_mapping = {}
 
     # migrate vrf
-    for container in pc._get_entities(0, 'Configuration', 0, 999)[0]:
+    for container in pc._get_entities(0, 'Configuration', 0, 9999999)[0]:
+        for dns_view in pc._get_entities(container[0], 'View', 0, 999999):
+           for dns_zone in  pc._get_entities(dns_view[1][0][0], 'Zone', 0, 999999):
+               for host_record in pc._get_entities( dns_zone[1][0][0], 'HostRecord', 0, 999999):
+                    for host_record_object in host_record[1]:
+                        try: 
+                            host_record_ips = re.search(r"addresses=(.*?)\|", host_record_object[2]).group(1).split(',')
+                        except Exception as e:
+                            continue
+ 
+                        try:
+                            host_record_name = re.search(r"absoluteName=(.*?)\|", host_record_object[2]).group(1)
+                        except:
+                            continue
+
+                        for ip in host_record_ips:
+                            host_record_mapping.update({ip: host_record_name})
+
         all_vrfs += 1
         if container[2] is not None and 'customertriple' in container[2]:
             vrf_group_name = container[2][15:-1]
@@ -311,8 +330,14 @@ if __name__ == '__main__':
                             for ip in ip_entities[0]:
                                 all_ips += 1
                                 target_ip = re.search(r"address=(.*?)\|", ip[2]).group(1)
-                                label = ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None
-
+                                if conf.IP_LABEL_FROM_DNS:
+                                    if target_ip in host_record_mapping:
+                                        label = host_record_mapping[target_ip]
+                                    else: 
+                                        label = ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None
+                                else:
+                                    label = ip[1].encode('ascii', 'ignore').decode('ascii') if ip[1] else None
+         
                                 skipped = False
                                 if label:
                                     for x in conf.SKIP.split(','):

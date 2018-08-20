@@ -11,6 +11,7 @@ DEBUG = True  # write debug log
 DEBUG_LOG = 'debug.log'
 AUTO_ADD_IPS = False
 SKIP = 'MOVED, CLOSED, IGNORE'
+IP_LABEL_FROM_DNS = True
 
 # ====== Device42 upload settings ========= #
 D42_URL = 'https://10.10.10.11'
