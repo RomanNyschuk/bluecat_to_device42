@@ -190,24 +190,25 @@ if __name__ == '__main__':
     host_record_mapping = {}
 
     # migrate vrf
-    for container in pc._get_entities(0, 'Configuration', 0, 9999999)[0]:
-        for dns_view in pc._get_entities(container[0], 'View', 0, 999999):
-           for dns_zone in  pc._get_entities(dns_view[1][0][0], 'Zone', 0, 999999):
-               for host_record in pc._get_entities( dns_zone[1][0][0], 'HostRecord', 0, 999999):
-                    for host_record_object in host_record[1]:
-                        try: 
-                            host_record_ips = re.search(r"addresses=(.*?)\|", host_record_object[2]).group(1).split(',')
-                        except Exception as e:
-                            continue
- 
-                        try:
-                            host_record_name = re.search(r"absoluteName=(.*?)\|", host_record_object[2]).group(1)
-                        except:
-                            continue
+    for container in pc._get_entities(0, 'Configuration', 0, 999999)[0]:
+        for dns_views in pc._get_entities(container[0], 'View', 0, 999999):
+            for dns_view in dns_views[1]:
+               for dns_zones in  pc._get_entities(dns_view[0], 'Zone', 0, 999999):
+                   for dns_zone in dns_zones[1]:
+                       for host_record in pc._get_entities(dns_zone[0], 'HostRecord', 0, 999999):
+                           for host_record_object in host_record[1]:
+                               try:
+                                   host_record_ips = re.search(r"addresses=(.*?)\|", host_record_object[2]).group(1).split(',')
+                               except Exception as e:
+                                   continue
 
-                        for ip in host_record_ips:
-                            host_record_mapping.update({ip: host_record_name})
+                               try:
+                                   host_record_name = re.search(r"absoluteName=(.*?)\|", host_record_object[2]).group(1)
+                               except:
+                                   continue
 
+                               for ip in host_record_ips:
+                                   host_record_mapping.update({ip: host_record_name})
         all_vrfs += 1
         if container[2] is not None and 'customertriple' in container[2]:
             vrf_group_name = container[2][15:-1]
@@ -226,7 +227,7 @@ if __name__ == '__main__':
     # migrate ip4 blocks
     for vrf in vrf_group_mapping:
         all_blocks = []
-        block_entities = pc._get_entities(vrf, 'IP4Block', 0, 9999)
+        block_entities = pc._get_entities(vrf, 'IP4Block', 0, 999999)
 
         def blocks_reccursion(blocks):
             for block in blocks:
@@ -234,8 +235,8 @@ if __name__ == '__main__':
                     all_blocks.append(block[1][0])
                 else:
                     all_blocks.append(block)
-                try: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999))
-                except: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 9999)[0])
+                try: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 999999))
+                except: blocks_reccursion(pc._get_entities(block[0], 'IP4Block', 0, 999999)[0])
 
         if not block_entities:
            continue
@@ -274,7 +275,7 @@ if __name__ == '__main__':
                 })
 
                 # migrage ip4 networks
-                network_entities = pc._get_entities(ip4_block[0], 'IP4Network', 0, 9999)
+                network_entities = pc._get_entities(ip4_block[0], 'IP4Network', 0, 999999)
 
                 if len(network_entities) > 0:
                     for ip4_network in network_entities[0]:
